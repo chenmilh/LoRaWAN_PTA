@@ -1,0 +1,12 @@
+R{"energy2"}max=? [ F "done" ]
+R{"energy1"}max=? [ F "done" ]
+R{"transmissions2"}max=? [ F "done" ]
+R{"transmissions1"}max=? [ F "done" ]
+Pmin=? [ F "done"&"node1_succ"&"node2_succ" ]
+Pmin=? [ F "done"&"node2_succ" ]
+Pmin=? [ F "done"&"node1_succ" ]
+Pmax=? [ F "done"&"node1_succ"&"node2_succ" ]
+Pmax=? [ F "done"&"node2_succ" ]
+Pmax=? [ F "done"&"node1_succ" ]
+Pmin=? [ F "done"&"node1_succ"&"node2_succ"&retx_lim1+retx_lim2<=K ]
+

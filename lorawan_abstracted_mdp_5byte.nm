@@ -1,0 +1,133 @@
+mdp
+
+const int DL1_DC=800;
+const int DL2_DC=80;
+const int AT=8;
+const int Tc=1;
+const int sec=10;
+const int DC_lim=AT*99;
+const int final_send_time = AT;
+
+const double p_CE1=0.5355364521904377;
+const double p_CE2=0.11958749780148237;
+
+const int retx=4;
+const int K=0;
+
+module DW1
+	dl1 : [0..1];
+	x_dl1 : [0..DL1_DC];
+	[receive11] dl1=0 -> (dl1'=1)&(x_dl1'=0); 
+	[receive21] dl1=0 -> (dl1'=1)&(x_dl1'=0); 
+	[time] dl1=1 & x_dl1<DL1_DC -> (x_dl1'=min(DL1_DC,x_dl1+1));
+	[] dl1=1 & x_dl1=DL1_DC -> (dl1'=0)&(x_dl1'=0);
+	[time] dl1=0 -> true;
+endmodule
+
+module receiver
+	y1 : [0..AT];
+	y2 : [0..AT];	
+	recv1 : [0..2];
+	recv2 : [0..2];
+	[send1] (recv1=0)&(recv2!=1) -> (recv1'=1) & (y1'=0);
+	[send2] (recv1!=1)&(recv2=0) -> (recv2'=1) & (y2'=0);
+	[send1] (recv1=0) & (recv2=1) & (y2<=Tc)-> p_CE1 : (recv2'=0) &(y2'=0) & (recv1'=1) & (y1'=0)
+ 				 		     + (1-p_CE1) : (recv2'=0) &(y2'=0) & (recv1'=0) & (y1'=0);
+	[send2] (recv1=1) & (recv2=0) & (y1<=Tc)-> p_CE2 : (recv1'=0) &(y1'=0) & (recv2'=1) & (y2'=0)
+ 				 		     + (1-p_CE2) : (recv2'=0) &(y2'=0) & (recv1'=0) & (y1'=0);
+	[send1] (recv1=0) & (recv2=1) & (y2>Tc) & (y2<=AT-Tc) -> p_CE2 : (recv2'=1) & (recv1'=0) & (y1'=0)
+ 				 		     		            + (1-p_CE2) : (recv2'=0) & (y1'=0) & (recv1'=0); 
+	[send2] (recv1=1) & (recv2=0) & (y1>Tc) & (y1<=AT-Tc) -> p_CE1 : (recv1'=1) & (recv2'=0) & (y2'=0)
+ 				 		     		            + (1-p_CE1) : (recv1'=0) & (y2'=0) & (recv2'=0);
+	[send1] (recv1=0) & (recv2=1) & (y2>AT-Tc) -> (recv2'=1) & (y1'=0) & (recv1'=1); 
+	[send2] (recv1=1) & (recv2=0) & (y1>AT-Tc) -> (recv1'=1) & (y2'=0) & (recv2'=1);
+	[] (recv2=1)& (y2=AT) &!((s1=1)&(x1=final_send_time))-> (recv2'=2)& (y2'=0);
+	[] (recv1=1)& (y1=AT) &!((s2=1)&(x2=final_send_time)) -> (recv1'=2)& (y1'=0);
+	//[] (recv1=0)& (y1=AT) -> (recv1'=0)& (y1'=0);
+	//[] (recv1=1)&(recv2!=1) &(y1<=AT)->(recv1'=1);
+	[receive11] (recv1=2) -> (recv1'=0) & (y1'=0);
+	[receive12] (recv1=2) -> (recv1'=0) & (y1'=0);
+	[receive21] (recv2=2) -> (recv2'=0) & (y2'=0);
+	[receive22] (recv2=2) -> (recv2'=0) & (y2'=0);
+	[time] (recv1=1)&(y1<AT)&(recv2=1)&(y2<AT)-> (y1'=min(y1+1,AT)) & (y2'=min(y2+1,AT));
+	[time] (recv1=1)&(y1<AT)&(recv2!=1)-> (y1'=min(y1+1,AT));
+	[time] (recv2=1)&(y2<AT)&(recv1!=1)-> (y2'=min(y2+1,AT));
+	[time] (recv1!=1)&(recv2!=1)->true;		
+endmodule
+
+module node1
+	s1 : [0..5];	
+	x1 : [0..DC_lim]; 
+	res1 : [0..4]; 
+	retx_lim1 : [0..retx];
+	[](s1=0) -> 1/9: (s1'=1)&(x1'=final_send_time)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-1)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-2)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-3)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-4)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-5)
+				 		  +1/9: (s1'=1)&(x1'=final_send_time-6)
+						  +1/9: (s1'=1)&(x1'=final_send_time-7)
+						  +1/9: (s1'=1)&(x1'=final_send_time-8);
+	[time](s1=1) &(x1<final_send_time) -> (x1'=min(final_send_time,x1+1));
+	[send1](s1=1) &(x1=final_send_time) -> (s1'=2) & (retx_lim1'=min(retx_lim1+1,retx)) & (x1'=0);
+	[time] (s1=2) & (x1<AT) -> (x1'=min(x1+1,AT));
+	[] (s1=2) & (x1=AT) -> (s1'=3) & (x1'=0);
+	[time](s1=3) & (x1<sec) -> (x1'=min(x1+1,sec));
+	[receive11] (s1=3) & (x1=sec)&(dl1=0) &(recv1=2)& (res1=0)-> (res1'=1)&(s1'=5)& (x1'=0);
+	[busy11] (s1=3) & (x1=sec) &(dl1=1)&(recv1=2) & (res1=0) -> (res1'=2)&(x1'=0);
+	[noACK1] (s1=3) & (x1=sec) & (recv1=0)&(res1=0) -> (res1'=2)&(x1'=0);
+	[receive12] (s1=3) & (x1=sec) & (recv1=2)&(res1=2) -> (res1'=3)&(s1'=5)&(x1'=0);
+	[noACK1] (s1=3) & (x1=sec) & (recv1=0)& (res1=2) -> (s1'=4)  & (res1'=4)&(x1'=2*sec);
+	[fail1] (s1=4) & (x1=DC_lim) & (res1=4) & (retx_lim1<=retx-1) -> (s1'=0)& (x1'=0) & (res1'=0);
+	[fail1] (s1=4) & (x1=DC_lim) & (res1=4) & (retx_lim1=retx) -> (s1'=5) & (x1'=0) & (res1'=4) & (retx_lim1'=0);
+	[time](s1=4) & (x1<DC_lim) -> (x1'=min(x1+1,DC_lim));
+	[time] s1=5 ->true;
+endmodule
+
+module node2=node1[s1=s2,x1=x2,res1=res2,retx_lim1=retx_lim2,receive11=receive21,noACK1=noACK2,receive12=receive22,busy11=busy21,send1=send2,fail1=fail2,recv1=recv2] endmodule
+
+module indicator
+	sender : [0..2];
+	[](sender=0)&(s1=1) &(x1=final_send_time) &!((s2=1) &(x2=final_send_time))->(sender'=1);
+	[](sender=0)&(s2=1) &(x2=final_send_time) &!((s1=1) &(x1=final_send_time))->(sender'=2);
+	[](sender=0)&(s1=1) &(x1=final_send_time) &(s2=1) &(x2=final_send_time) ->1/2: (sender'=1)
+						                                             + 1/2: (sender'=2);
+	[send1](sender=1)->(sender'=0);
+	[send2](sender=2)->(sender'=0);
+endmodule
+
+rewards "energy1"
+	[send1]true : 0.109216;
+	[receive11]true :  0.039715;
+	[receive12]true :  0.058982;
+	[fail1]true :  0.038535;
+endrewards
+
+rewards "energy2"
+	[send2]true : 0.109216;
+	[receive21]true :  0.039715;
+	[receive22]true :  0.058982;
+	[fail2]true :  0.038535;
+endrewards
+
+rewards "transmissions"
+	[send1] true : 1;
+	[send2] true : 1;
+endrewards
+
+rewards "transmissions1"
+	[send1] true : 1;
+endrewards
+
+rewards "transmissions2"
+	[send2] true : 1;
+endrewards
+
+label "done" = s1=5 & s2=5;
+label "collision1" = s1=3 & recv1=0;
+label "node1_succ" = res1=1|res1=3;
+label "node2_succ" = res2=1|res2=3;
+label "node1_succ2" = res1=3;
+label "node2_succ2" = res2=3;
+label "allfail" = res1=4 & res2=4;
